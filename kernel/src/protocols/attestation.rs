@@ -196,7 +196,7 @@ fn get_attestation_report(nonce: &[u8]) -> Result<Vec<u8>, SvsmReqError> {
     report_req.resize(size_of::<SnpReportResponse>(), 0);
 
     // Send request to snp
-    let response_size = get_regular_report(report_req.as_mut_slice()).unwrap();
+    let response_size = get_regular_report(report_req.as_mut_slice())?;
 
     // Per Table 24 of "SEV Secure Nested Paging Firmware ABI Specification, Revision 1.56",
     // attestation report starts  at byte offset 0x20
