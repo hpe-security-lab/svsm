@@ -98,15 +98,16 @@ impl AttestSingleServiceOp {
         let guard = PerCPUPageMappingGuard::create_4k(start)?;
         let vaddr = guard.virt_addr() + offset;
 
-        // Check that the nonce length is not greater than 4k.
-        // If it is, return an error as something is wrong with the request
+        // Check that the nonce length is not greater than 4k as we are going to map in only one
+        // page. Nonce size is 64 bytes per Table 21 of
+        // "SEV Secure Nested Paging Firmware ABI Specification, Revision 1.56"
         if size > PAGE_SIZE {
             return Err(SvsmReqError::invalid_parameter());
         }
 
         // SAFETY: vaddr points to a new mapped page region. And get_nonce_gpa_and_size() already
-        // validated that gpa is page aligned, valid  and does not cross. We also  checked earlier
-        // that size is not greater than PAGE_SIZE, so we can safely read the nonce.
+        // validated that gpa is page aligned, valid  and does not cross page boundaries. We also
+        // checked earlier that size is not greater than PAGE_SIZE, so we can safely read the nonce.
         let buffer = unsafe { from_raw_parts(vaddr.as_mut_ptr::<u8>(), size) };
         let nonce = buffer.to_vec();
 
@@ -155,14 +156,6 @@ impl AttestSingleServiceOp {
         Ok((gpa, size))
     }
 
-    /// Returns the certificate GPA and size
-    /// Checks if gpa is page aligned, valid  and does not cross page boundary
-    /// pub fn get_report_gpa_and_size(&self) -> Result<(PhysAddr, usize), SvsmReqError> {
-    /// Currently not implemented supported as no service attestation currently supports
-    /// returning certificates. Implement when needed by copying get_report_gpa_and_size()
-    /// and replacing report's gpa and size  with certificate's.
-    /// }
-
     pub fn get_manifest_version(&self) -> u32 {
         self.manifest_ver
     }
@@ -182,7 +175,6 @@ fn get_attestation_report(nonce: &[u8]) -> Result<Vec<u8>, SvsmReqError> {
     let mut report_req = Vec::<u8>::with_capacity(size_of::<SnpReportResponse>());
     let mut buf = Vec::<u8>::with_capacity(USER_DATA_SIZE);
     buf.fill(0);
-
     if nonce.len() > USER_DATA_SIZE {
         // If the nonce is greater than the user data size, return an error as something is wrong.
         return Err(SvsmReqError::invalid_parameter());
@@ -200,7 +192,7 @@ fn get_attestation_report(nonce: &[u8]) -> Result<Vec<u8>, SvsmReqError> {
     // Make sure buffer is big enough to hold the report
     report_req.resize(size_of::<SnpReportResponse>(), 0);
 
-    //send request to snp
+    // Send request to snp
     let response_size = get_regular_report(report_req.as_mut_slice()).unwrap();
 
     // Per Table 24 of "SEV Secure Nested Paging Firmware ABI Specification, Revision 1.56",
@@ -232,6 +224,7 @@ fn attest_single_vtpm(
 
     // Get attestation report from PSP with Sha512(nonce||manifest) as REPORT_DATA.
     let report = get_attestation_report(hash.as_slice())?;
+    // Validate that the report is not empty
 
     // Get attestation report buffer's gPA from call's Attest Single Service Operation structure
     let (report_gpa, _) = ops.get_report_gpa_and_size()?;
@@ -241,10 +234,12 @@ fn attest_single_vtpm(
     let report_guard = PerCPUPageMappingGuard::create_4k(report_start)?;
     let report_vaddr = report_guard.virt_addr() + report_offset;
 
-    // Check that the attestation report length is not greater than 4k.
-    // If it is, return an error as something is wrong with the report or SNP
+    // Check that the attestation report length is not greater than 4K as we going to map in one
+    // page only below. If it is, return an error as something is wrong with the report or SNP
     // Per page 32 of "Secure VM Service Module for SEV-SNP Guests 58019 Rev. 1.00",
     // return 0x8000_1000 i.e. SVSM::UNSUPPORTED_PROTOCOL.
+    // The Attestation report length is 0x5F (95) per  Table 21 of
+    // "SEV Secure Nested Paging Firmware ABI Specification, Revision 1.56"
     if report.len() > PAGE_SIZE {
         log::error!("Malformed VTPM service attestation report");
         return Err(SvsmReqError::unsupported_protocol());
@@ -272,10 +267,12 @@ fn attest_single_vtpm(
     let manifest_guard = PerCPUPageMappingGuard::create_4k(manifest_start)?;
     let manifest_vaddr = manifest_guard.virt_addr() + manifest_offset;
 
-    // Check that the length of the manifest is not greater than 4k.
-    // If it is, return an error as something is wrong with the manifest or vTPM
+    // Check that the length of the manifest is not greater than 4k as we going to map in one page
+    // only. If it is, return an error as something is wrong with the manifest or vTPM
     // Per page 32 of Secure VM Service Module for SEV-SNP Guests 58019 Rev. 1.00 July 2023
     // return SVSM::UNSUPPORTED_PROTOCOL (i.e., 0x8000_1000).
+    // Per "TCG EK Credential Profile For TPM Family 2.0; Level 0  Version 2.5 Revision 2"
+    // none of the TCG EK profiles will produce a manifest i.e. TPMT_PUBLIC larger than 4K.
     if manifest.len() > PAGE_SIZE {
         log::error!("Malformed VTPM service attestation manifest");
         return Err(SvsmReqError::unsupported_protocol());
