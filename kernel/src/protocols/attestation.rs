@@ -14,6 +14,9 @@ use crate::{
     mm::{valid_phys_address, PerCPUPageMappingGuard},
     types::PAGE_SIZE,
 };
+use alloc::vec::Vec;
+use core::{mem::size_of, slice::from_raw_parts};
+
 #[cfg(all(feature = "vtpm", not(test)))]
 use crate::{
     greq::{
@@ -22,12 +25,13 @@ use crate::{
     },
     vtpm::vtpm_get_ekpub,
 };
-use alloc::vec::Vec;
+#[cfg(all(feature = "vtpm", not(test)))]
+use alloc::vec;
 #[cfg(all(feature = "vtpm", not(test)))]
 use core::slice::from_raw_parts_mut;
-use core::{mem::size_of, slice::from_raw_parts};
 #[cfg(all(feature = "vtpm", not(test)))]
 use sha2::{Digest, Sha512};
+
 const SVSM_ATTEST_SERVICES: u32 = 0;
 const SVSM_ATTEST_SINGLE_SERVICE: u32 = 1;
 
@@ -173,8 +177,7 @@ impl AttestSingleServiceOp {
 fn get_attestation_report(nonce: &[u8]) -> Result<Vec<u8>, SvsmReqError> {
     //Construct attestation request message to send to SNP
     let mut report_req = Vec::<u8>::with_capacity(size_of::<SnpReportResponse>());
-    let mut buf = Vec::<u8>::with_capacity(USER_DATA_SIZE);
-    buf.fill(0);
+    let mut buf = vec![0u8; USER_DATA_SIZE];
     if nonce.len() > USER_DATA_SIZE {
         // If the nonce is greater than the user data size, return an error as something is wrong.
         return Err(SvsmReqError::invalid_parameter());
