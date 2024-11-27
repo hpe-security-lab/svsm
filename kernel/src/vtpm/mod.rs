@@ -11,6 +11,7 @@
 pub mod tcgtpm;
 
 extern crate alloc;
+
 use alloc::vec::Vec;
 
 use crate::vtpm::tcgtpm::TcgTpm as Vtpm;
@@ -88,6 +89,12 @@ pub trait VtpmInterface: TcgTpmSimulatorInterface {
     /// Returns the cached EK public key if it exists, otherwise it returns an error indicating
     /// that the EK public key does not exist.
     fn get_ekpub(&self) -> Result<Vec<u8>, SvsmReqError>;
+
+    /// Run the TPM self-test command
+    fn run_selftest_cmd(&self) -> Result<(), SvsmReqError>;
+
+    // Run the TPM startup command
+    fn run_startup_cmd(&self) -> Result<(), SvsmReqError>;
 }
 
 static VTPM: SpinLock<Vtpm> = SpinLock::new(Vtpm::new());

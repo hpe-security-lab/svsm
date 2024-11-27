@@ -166,6 +166,26 @@ impl TcgTpmSimulatorInterface for TcgTpm {
 }
 
 impl VtpmInterface for TcgTpm {
+    fn run_selftest_cmd(&self) -> Result<(), SvsmReqError> {
+        // TPM2_CC_SelfTest
+        let selftest_cmd: &mut [u8] = &mut [
+            0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x00,
+        ];
+        self.send_tpm_command(selftest_cmd, &mut selftest_cmd.len(), 0)?;
+
+        Ok(())
+    }
+
+    fn run_startup_cmd(&self) -> Result<(), SvsmReqError> {
+        // TPM2_CC_Startup
+        let startup_cmd: &mut [u8] = &mut [
+            0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
+        ];
+        self.send_tpm_command(startup_cmd, &mut startup_cmd.len(), 0)?;
+
+        Ok(())
+    }
+
     fn get_ekpub(&self) -> Result<Vec<u8>, SvsmReqError> {
         self.ekpub.clone().ok_or_else(SvsmReqError::invalid_request)
     }
@@ -337,16 +357,8 @@ impl VtpmInterface for TcgTpm {
         self.signal_poweron(false)?;
         self.signal_nvon()?;
 
-        // TPM2_CC_SelfTest
-        let selftest_cmd: &mut [u8] = &mut [
-            0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x00,
-        ];
-        // TPM2_CC_Startup
-        let startup_cmd: &mut [u8] = &mut [
-            0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
-        ];
-        self.send_tpm_command(selftest_cmd, &mut selftest_cmd.len(), 0)?;
-        self.send_tpm_command(startup_cmd, &mut startup_cmd.len(), 0)?;
+        self.run_selftest_cmd()?;
+        self.run_startup_cmd()?;
 
         self.create_ek_rsa2048()?;
 
