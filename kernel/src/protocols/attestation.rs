@@ -122,7 +122,7 @@ impl AttestSingleServiceOp {
             return Err(SvsmReqError::invalid_parameter());
         }
 
-        //cast won't panic on amd64 as usize > u32 always
+        // Won't panic on amd64 as usize > u32 always
         let size = self.nonce_size as usize;
 
         Ok((gpa, size))
@@ -192,15 +192,12 @@ fn get_attestation_report(nonce: &[u8]) -> Result<Vec<u8>, SvsmReqError> {
     report_req.resize(size_of::<SnpReportResponse>(), 0);
 
     // Send request to snp
-    let response_size = get_regular_report(report_req.as_mut_slice())?;
+    let _response_size = get_regular_report(report_req.as_mut_slice())?;
 
     // Per Table 24 of "SEV Secure Nested Paging Firmware ABI Specification, Revision 1.56",
-    // attestation report starts  at byte offset 0x20
-    if response_size < 0x20 {
-        // If the response size is less than 0x20, return an error as something is wrong with
-        //  the report or SNP
-        return Err(SvsmReqError::unsupported_protocol());
-    }
+    // attestation report starts at byte offset 0x20. And get_regular_report() already called
+    // SnpReportResponse::validate_report() which checks that the report is the right length.
+    // So we can always drain the first 0x20 bytes without panicking at runtime.
     report_req.drain(0..0x20);
 
     Ok(report_req)
