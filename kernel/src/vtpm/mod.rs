@@ -82,11 +82,7 @@ pub trait VtpmInterface: TcgTpmSimulatorInterface {
     /// be recreated at any time. For example, one can recreate the same EK in an OS using TSS2
     /// "tpm2_createek -c ek.ctx -G rsa -u ek.pub command".
     ///
-    /// Retrieve the EK public key using the get_ekpub() function.
-    ///
-    /// # Warning
-    ///
-    /// The function should only be called after the TPM is powered on and initialised
+    /// Retrieve the EK public key with get_ekpub() function.
     fn create_ek_rsa2048(&mut self) -> Result<(), SvsmReqError>;
 
     /// Returns the cached EK public key if it exists, otherwise it returns an error indicating

@@ -29,7 +29,7 @@ use crate::{
 };
 
 // Definitions from "Trusted Platform Module Library Part 4: Supporting Routines – Code,
-//  Family “2.0”, Level 00, Revision 01.38"
+// Family “2.0”, Level 00, Revision 01.38"
 const TPM_ST_SESSIONS: u16 = 0x8002;
 const TPM_CC_CREATEPRIMARY: u32 = 0x00000131;
 const TPM_RH_ENDORSEMENT: u32 = 0x4000000B;
@@ -183,6 +183,9 @@ impl VtpmInterface for TcgTpm {
         //
         // See also "TCG TSS 2.0 Overview and Common Structures Specification, Version 1.0,
         // Level 2 Revision 10".
+        if !self.is_powered_on {
+            return Err(SvsmReqError::invalid_request());
+        }
 
         let authpolicy: [u8; 32] = [
             0x83, 0x71, 0x97, 0x67, 0x44, 0x84, 0xb3, 0xf8, 0x1a, 0x90, 0xcc, 0x8d, 0x46, 0xa5,
